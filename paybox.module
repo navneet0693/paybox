@@ -1,0 +1,226 @@
+<?php
+// $Id$
+
+function paybox_help($section = '') {
+  switch ($section) {
+    case 'admin/help#paybox':
+      return t('Paybox configuration.');
+      break;
+  }
+}
+
+function paybox_menu() {
+  $items = array();
+  $items[] = array(
+    'path' => 'admin/ecsettings/paybox',
+    'title' => 'Paybox',
+    'callback' => 'drupal_get_form',
+    'callback arguments' => array('paybox_ec_settings'),
+    'access' => user_access('administer store'),
+    'type' => MENU_NORMAL_ITEM,
+    'description' => t('Paybox payment configuration'),
+  );
+  $items[] = array(
+    'path' => 'paybox/payment',
+    'callback' => 'paybox_payment_page',
+    'access' => 1,
+    'type' => MENU_CALLBACK
+  );
+  $items[] = array(
+    'path' => 'paybox/effectue',
+    'callback' => 'paybox_effectue',
+    'access' => 1,
+    'type' => MENU_CALLBACK
+  );
+  $items[] = array(
+    'path' => 'paybox/refuse',
+    'callback' => 'paybox_refuse',
+    'access' => 1,
+    'type' => MENU_CALLBACK
+  );
+  $items[] = array(
+    'path' => 'paybox/annule',
+    'callback' => 'paybox_annule',
+    'access' => 1,
+    'type' => MENU_CALLBACK
+  );
+  $items[] = array(
+    'path' => 'paybox/auto',
+    'callback' => 'paybox_auto',
+    'access' => 1,
+    'type' => MENU_CALLBACK
+  );
+    return $items;
+}
+
+function paybox_ec_settings() {
+  $form = array();
+  $form['pbx_cgi_path'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('CGI'), 
+    '#default_value' => variable_get('pbx_cgi_path', ''), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Paybox CGI path'),
+    '#required' => true,
+  );
+  $form['pbx_pubkey_path'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Clé publique'), 
+    '#default_value' => variable_get('pbx_pubkey_path', './sites/all/modules/paybox/pubkey.pem'), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Paybox public key file path'),
+    '#required' => true,
+  );
+  $form['pbx_site'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Site number'), 
+    '#default_value' => variable_get('pbx_site', ''), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Site number (TPE) given by the bank'),
+    '#required' => true,
+  );
+  $form['pbx_rang'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Rank number'), 
+    '#default_value' => variable_get('pbx_rang', ''), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Rank number given by the bank'),
+    '#required' => true,
+  );
+  $form['pbx_identifiant'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Paybox identifier'), 
+    '#default_value' => variable_get('pbx_identifiant', ''), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Paybox identifier provided by Paybox Services when you subscribe'),
+    '#required' => true,
+  );
+  $form['pbx_ip'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Paybox IP addresses'),
+    '#default_value' => variable_get('pbx_ip', ''),
+    '#description' => t('Paybox payment servers IP addresses (one per line)'),
+    '#required' => true,
+  );
+  return system_settings_form($form);
+}
+
+function paybox_ec_settings_submit() {
+  variable_set('pbx_ip', $_POST['pbx_ip']);
+}
+
+function paybox_paymentapi(&$txn, $op, $arg = '') {
+  
+  switch ($op) {
+    case 'display name':
+      return t('Paybox');
+
+  case 'payment page':
+    if ($txn->gross > 0) {
+      return paybox_goto($txn);
+    }
+    break;
+  }
+}
+
+function paybox_goto($txn) {
+  $_SESSION['paybox_page'] = paybox_payment($txn);
+  $url = 'paybox/payment';
+  return $url;
+}
+
+function paybox_payment_page(){
+  $content = $_SESSION['paybox_page'];
+  echo $content;
+}
+
+function paybox_currency() {
+  $payment_symbol = variable_get('payment_symbol', '$');
+  switch ($payment_symbol) {
+    case '€' :
+      return 978;
+    case '$' :
+    default :
+      return 840; // default is dollar
+  }
+}
+
+function paybox_payment($txn) {
+  $parm = " PBX_MODE=4";
+  $parm .= " PBX_SITE=".variable_get('pbx_site', '');
+  $parm .= " PBX_RANG=".variable_get('pbx_rang', '');
+  $parm .= " PBX_TOTAL=".floor($txn->gross * 100);;
+  $parm .= " PBX_DEVISE=".paybox_currency();
+  $parm .= " PBX_CMD=".$txn->txnid;
+  $parm .= " PBX_PORTEUR=".$txn->mail;
+  $parm .= " PBX_RETOUR='txnid:R;erreur:E;sign:K'";
+  $parm .= " PBX_IDENTIFIANT=".variable_get('pbx_identifiant', '');
+  $parm .= " PBX_EFFECTUE=".url(NULL, NULL, NULL, TRUE) . (variable_get('clean_url', 0) ? '' : '?q=') . 'paybox/effectue';
+  $parm .= " PBX_REFUSE=".url(NULL, NULL, NULL, TRUE) . (variable_get('clean_url', 0) ? '' : '?q=') . 'paybox/refuse';
+  $parm .= " PBX_ANNULE=".url(NULL, NULL, NULL, TRUE) . (variable_get('clean_url', 0) ? '' : '?q=') . 'paybox/annule';
+  $path_bin = variable_get('pbx_cgi_path', '');
+  return shell_exec(trim($path_bin.$parm));
+}
+
+function paybox_effectue() {
+  $content = "";
+  drupal_set_message(t('Your purchase has been completed.'));
+  drupal_set_message(t('Your purchase has been received.'));
+  return $content;
+}
+
+function paybox_refuse() {
+  $content = "";
+  drupal_set_message(t('Your purchase has been refused.'));
+  return $content;
+}
+
+function paybox_annule() {
+  $content = "";
+  drupal_set_message(t('Your purchase has been canceled.'));
+  return $content;
+}
+
+function paybox_auto() {
+  if (verif_ip() && verif_sign()) {
+    $transaction = store_transaction_load($_GET['tnxid']);
+    $transaction->changed = time();
+    if ($_GET['erreur'] == "00000") {
+      $transaction->payment_status = payment_get_status_id('completed');
+      $transaction->workflow = 6;
+    }
+    else {
+      $transaction->payment_status = payment_get_status_id('canceled');
+      $transaction->workflow = 5;
+    }
+    store_transaction_save($transaction);
+  }
+  echo "";    
+}
+
+function verif_ip() {
+  $ip_adresses = variable_get('pbx_ip', '');
+  $ip_adresses = explode("\n", $ip_adresses);
+  foreach ($ip_adresses as $ip_adresse) {
+    if (trim($ip_adresse)==$_SERVER['REMOTE_ADDR']) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function verif_sign() {
+  $q = $_SERVER['QUERY_STRING'];
+  $pos = strrpos($q, '&');
+  $data = substr($q, 0, $pos);
+  $pos= strpos($q, '=', $pos) + 1;
+  $sig = substr($q, $pos);
+  $sig = base64_decode(urldecode($sig));
+  $key = openssl_pkey_get_public(file_get_contents(variable_get('pbx_pubkey_path', './sites/all/modules/paybox/pubkey.pem')));
+  return openssl_verify($data, $sig, $key);
+}

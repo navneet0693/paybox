@@ -1,0 +1,7 @@
+; $Id$
+name = "Paybox"
+title = "Paybox"
+description = "Paybox payment gateway in E-Commerce."
+package = "E-Commerce Payment Methods"
+dependencies = payment
+version = 0.1
