@@ -188,7 +188,7 @@ function paybox_annule() {
 
 function paybox_auto() {
   if (verif_ip() && verif_sign()) {
-    $transaction = store_transaction_load($_GET['tnxid']);
+    $transaction = store_transaction_load($_GET['txnid']);
     $transaction->changed = time();
     if ($_GET['erreur'] == "00000") {
       $transaction->payment_status = payment_get_status_id('completed');
