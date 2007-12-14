@@ -110,8 +110,13 @@ function paybox_ec_settings() {
   return system_settings_form($form);
 }
 
-function paybox_ec_settings_submit() {
-  variable_set('pbx_ip', $_POST['pbx_ip']);
+function paybox_ec_settings_submit($form_id, $form_values) {
+  variable_set('pbx_cgi_path', $form_values['pbx_cgi_path']);
+  variable_set('pbx_pubkey_path', $form_values['pbx_pubkey_path']);
+  variable_set('pbx_site', $form_values['pbx_site']);
+  variable_set('pbx_rang', $form_values['pbx_rang']);
+  variable_set('pbx_identifiant', $form_values['pbx_identifiant']);
+  variable_set('pbx_ip', $form_values['pbx_ip']);
 }
 
 function paybox_paymentapi(&$txn, $op, $arg = '') {
