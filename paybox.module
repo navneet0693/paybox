@@ -145,7 +145,7 @@ function paybox_payment_page(){
 }
 
 function paybox_currency() {
-  $payment_symbol = variable_get('payment_symbol', '$');
+  $payment_symbol = trim(variable_get('payment_symbol', '$'));
   switch ($payment_symbol) {
     case '€' :
       return 978;
@@ -187,7 +187,14 @@ function paybox_refuse() {
 
 function paybox_annule() {
   $content = "";
-  drupal_set_message(t('Your purchase has been canceled.'));
+  if (verif_sign()) {
+    $transaction = store_transaction_load($_GET['txnid']);
+    $transaction->changed = time();
+    $transaction->payment_status = payment_get_status_id('canceled');
+    $transaction->workflow = 5;
+    store_transaction_save($transaction);
+    drupal_set_message(t('Your purchase has been canceled.'));
+  }
   return $content;
 }
 
@@ -205,7 +212,7 @@ function paybox_auto() {
     }
     store_transaction_save($transaction);
   }
-  echo "";    
+  echo "";
 }
 
 function verif_ip() {
@@ -220,10 +227,10 @@ function verif_ip() {
 }
 
 function verif_sign() {
-  $q = $_SERVER['QUERY_STRING'];
+  $q = preg_replace("/q=[^&]+&/", "", $_SERVER['QUERY_STRING']);
   $pos = strrpos($q, '&');
   $data = substr($q, 0, $pos);
-  $pos= strpos($q, '=', $pos) + 1;
+  $pos= strpos($q, '=', $pos) + 1;  
   $sig = substr($q, $pos);
   $sig = base64_decode(urldecode($sig));
   $key = openssl_pkey_get_public(file_get_contents(variable_get('pbx_pubkey_path', './sites/all/modules/paybox/pubkey.pem')));
