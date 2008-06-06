@@ -55,6 +55,15 @@ function paybox_menu() {
 
 function paybox_ec_settings() {
   $form = array();
+  $form['pbx_payment_label'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Paybox payment label'), 
+    '#default_value' => variable_get('pbx_payment_label', 'Paybox'), 
+    '#size' => 70, 
+    '#maxlength' => 180, 
+    '#description' => t('Label for Paybox as payment method'),
+    '#required' => true,
+  );
   $form['pbx_cgi_path'] = array(
     '#type' => 'textfield', 
     '#title' => t('CGI'), 
@@ -110,20 +119,11 @@ function paybox_ec_settings() {
   return system_settings_form($form);
 }
 
-function paybox_ec_settings_submit($form_id, $form_values) {
-  variable_set('pbx_cgi_path', $form_values['pbx_cgi_path']);
-  variable_set('pbx_pubkey_path', $form_values['pbx_pubkey_path']);
-  variable_set('pbx_site', $form_values['pbx_site']);
-  variable_set('pbx_rang', $form_values['pbx_rang']);
-  variable_set('pbx_identifiant', $form_values['pbx_identifiant']);
-  variable_set('pbx_ip', $form_values['pbx_ip']);
-}
-
 function paybox_paymentapi(&$txn, $op, $arg = '') {
   
   switch ($op) {
     case 'display name':
-      return t('Paybox');
+      return variable_get('pbx_payment_label', 'Paybox');
 
   case 'payment page':
     if ($txn->gross > 0) {
