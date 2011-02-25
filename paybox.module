@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function paybox_help($section = '') {
   switch ($section) {
