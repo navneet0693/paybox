@@ -1,6 +1,4 @@
-name = "Paybox"
-title = "Paybox"
-description = "Paybox payment gateway in E-Commerce."
-package = "E-Commerce Payment Methods"
-dependencies = payment
-version = 0.1
+name = Paybox
+description = API to use paybox payment system
+core = 6.x
+version = 1.0
