@@ -1,4 +1,0 @@
-name = Paybox
-description = API to use paybox payment system
-core = 6.x
-version = 1.0
