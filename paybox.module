@@ -15,6 +15,7 @@ define('PAYBOX_HASH', 'SHA512');
 
 define('PAYBOX_PAYMENT_STATUS_FAILURE', 0);
 define('PAYBOX_PAYMENT_STATUS_SUCCESS', 1);
+define('PAYBOX_PAYMENT_STATUS_PENDING', 2);
 
 /**
  * Implements hook_permission().
@@ -32,11 +33,6 @@ function paybox_permission() {
  * Implements hook_menu().
  */
 function paybox_menu() {
-  $items['paybox/redirect-page'] = array(
-    'page callback' => '_paybox_redirect_page_view',
-    'access callback' => 'user_is_logged_in',
-  );
-
   $items['paybox/return-page'] = array(
     'page callback' => '_paybox_return_page',
     'access callback' => 'user_is_logged_in',
@@ -97,110 +93,10 @@ function paybox_pay($cents, $order_id, $email, $currency = 'euro', $payment_meth
   curl_setopt($ch, CURLOPT_URL, $host);
   curl_setopt($ch, CURLOPT_POST, TRUE);
   curl_setopt($ch, CURLOPT_POSTFIELDS, $post_fields);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/x-www-form-urlencoded'));
+
   $response = curl_exec($ch);
-
-/*  // We keep a trace of the amount,
-  // so that it can be verified on status update request
-  $amounts = variable_get('paybox_order_amounts', array());
-  $amounts[$order_id] = $cents;
-  variable_set('paybox_order_amounts', $amounts);
-  $currency_code = _paybox_devise_code($currency);
-  $payment_type = _paybox_payment_method($payment_method, 'PBX_TYPEPAIEMENT');
-  $card_type = _paybox_payment_method($payment_method, 'PBX_TYPECARTE');
-  $query = array(
-    'cents' => $cents,
-    'order_id' => $order_id,
-    'payer_email' => $payer_email,
-    'payment_type' => $payment_type,
-    'card_type' => $card_type,
-    'return_url' => $return_url,
-    'currency' => $currency_code
-  );
-
-  $path = "paybox/redirect-page/";
-
-  return array(
-    $path,
-    array(
-      'query' => $query,
-    ),
-  );*/
 }
-
-//function _paybox_redirect_page_view() {
-//  $pbx_hash = "SHA512";
-//  $datetime = date("c");
-//
-//  $query = array(
-//    'PBX_SITE' => variable_get('paybox_PBX_SITE'),
-//    'PBX_RANG' => variable_get('paybox_PBX_RANG'),
-//    'PBX_IDENTIFIANT' => variable_get('paybox_PBX_IDENTIFIANT'),
-//    'PBX_TOTAL' => '000' . $_GET['cents'],
-//    'PBX_DEVISE' => $_GET['currency'],
-//    'PBX_CMD' => $_GET['order_id'],
-//    'PBX_PORTEUR' => $_GET['payer_email'],
-//    'PBX_TYPEPAIEMENT' => $_GET['payment_type'],
-//    'PBX_TYPECARTE' => $_GET['card_type'],
-//    'PBX_EFFECTUE' => url('paybox/return-page', array(
-//      'absolute' => TRUE,
-//      'query' => array(
-//        'return_url' => $_GET['return_url'],
-//        'result' => 'validated',
-//      ),
-//    )),
-//    'PBX_REFUSE' => url('paybox/return-page', array(
-//      'absolute' => TRUE,
-//      'query' => array(
-//        'return_url' => $_GET['return_url'],
-//        'result' => 'denied',
-//      ),
-//    )),
-//    'PBX_ANNULE' => url('paybox/return-page', array(
-//      'absolute' => TRUE,
-//      'query' => array(
-//        'return_url' => $_GET['return_url'],
-//        'result' => 'canceled',
-//      ),
-//    )),
-//
-//    'PBX_RETOUR' => 'amount:M;order_id:R;auto:A;error_code:E;sign:K',
-//    'PBX_REPONDRE_A' => url('paybox/ipn-callback', array(
-//      'absolute' => TRUE
-//    )),
-//    'PBX_HASH' => $pbx_hash,
-//    'PBX_TIME' => $datetime,
-//  );
-//
-//  foreach ($query as $key => $value) {
-//    $tmp[] = $key . '=' . $value;
-//  }
-//  $msg = implode('&', $tmp);
-//
-//  reset($query);
-//
-//  if (variable_get('paybox_activate_real_payments', FALSE)) {
-//    $keyTest = variable_get('paybox_production_hash_key');
-//  }
-//  else {
-//    $keyTest = variable_get('paybox_sandbox_hash_key');
-//  }
-//
-//  $binKey = pack("H*", $keyTest);
-//  $pbx_hmac = strtoupper(hash_hmac($pbx_hash, $msg, $binKey));
-//
-//  $query['PBX_HMAC'] = $pbx_hmac;
-//
-//  if (variable_get('paybox_activate_real_payments', FALSE)) {
-//    $host = variable_get('paybox_production_host');
-//  }
-//  else {
-//    $host = variable_get('paybox_sandbox_host');
-//  }
-//
-//  drupal_goto($host, array(
-//    'query' => $query
-//  ));
-//}
 
 /**
  * Checks if the server ip belongs to Paybox.
@@ -333,6 +229,9 @@ function _paybox_payment_method($payment_method, $type = 'PBX_TYPECARTE') {
   }
 }
 
+/**
+ * Payment form.
+ */
 function paybox_redirect_form($form, $form_state, $params) {
   $form = array();
 
@@ -354,16 +253,16 @@ function paybox_redirect_form($form, $form_state, $params) {
 }
 
 /**
- * Return paybox host in depending of environment settings.
+ * Return Paybox host in depending of environment settings.
  *
- * @return null
+ * @return string
  */
 function _paybox_get_host() {
   if (variable_get('paybox_activate_real_payments', FALSE)) {
-    $host = variable_get('paybox_production_host', '');
+    $host = variable_get('paybox_production_host', PAYBOX_URL);
   }
   else {
-    $host = variable_get('paybox_sandbox_host', '');
+    $host = variable_get('paybox_sandbox_host', PAYBOX_SANDBOX_URL);
   }
 
   return $host;
@@ -385,6 +284,12 @@ function _paybox_get_secret_key() {
   return $key;
 }
 
+/**
+ * Build array of Paybox params.
+ *
+ * @param $params
+ * @return array
+ */
 function _paybox_build_params_array($params) {
   global $language;
 
@@ -425,7 +330,7 @@ function _paybox_build_params_array($params) {
     "&PBX_TYPECARTE=$PBX_TYPECARTE" .
     "&PBX_LANGUE=$PBX_LANGUE";
 
-  $post_params =  array(
+  $post_params = array(
     'PBX_SITE' => $PBX_SITE,
     'PBX_RANG' => $PBX_RANG,
     'PBX_TOTAL' => str_pad($PBX_TOTAL, 3, '0', STR_PAD_LEFT),
@@ -461,6 +366,8 @@ function _paybox_build_params_array($params) {
   $PBX_HMAC = strtoupper(hash_hmac($PBX_HASH, $msg, $binKey));
   $params['PBX_HMAC'] = $PBX_HMAC;
 
+  drupal_alter('paybox_post_params', $params);
+
   return $post_params;
 }
 
@@ -475,15 +382,15 @@ function _paybox_build_params_array($params) {
  */
 function paybox_map_language($langcode) {
   $lang_map = array(
-    'fr'    => 'FRA',
-    'en'    => 'GBR',
+    'fr' => 'FRA',
+    'en' => 'GBR',
     'en-gb' => 'GBR',
-    'es'    => 'ESP',
-    'it'    => 'ITA',
-    'de'    => 'DEU',
-    'nl'    => 'NLD',
-    'sv'    => 'SWE',
-    'pt'    => 'PRT',
+    'es' => 'ESP',
+    'it' => 'ITA',
+    'de' => 'DEU',
+    'nl' => 'NLD',
+    'sv' => 'SWE',
+    'pt' => 'PRT',
     'pt-pt' => 'PRT',
     'pt-br' => 'PRT',
   );
@@ -548,6 +455,11 @@ function _paybox_get_paybox_error_msg($error) {
   }
 }
 
+/**
+ * Return mpa array of Paybox precise errors.
+ *
+ * @return array
+ */
 function _paybox_get_precise_errors_map() {
   return array(
     '00' => t('Transaction approved or successfully handled.'),
@@ -597,6 +509,11 @@ function _paybox_get_precise_errors_map() {
   );
 }
 
+/**
+ * Return map array for Paybox error codes.
+ *
+ * @return array
+ */
 function _paybox_get_errors_map() {
   return array(
     '00000' => t('Operation successful.'),
@@ -615,7 +532,7 @@ function _paybox_get_errors_map() {
     '00013' => t('This version is no longer upheld.'),
     '00014' => t('Incoherent frame received.'),
     '00015' => t('Error in access to previously referenced data.'),
-    '00016' =>  t('User already exists.'),
+    '00016' => t('User already exists.'),
     '00017' => t('User does not exist.'),
     '00018' => t('Transaction not found.'),
     '00020' => t('CVV not present.'),

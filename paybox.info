@@ -1,6 +1,6 @@
 name = Paybox
-description = API to use paybox payment system. This only implements Paybox System solution, in a non 3D secure environment. 
+description = API to use Paybox payment system. This only implements Paybox System solution, in a non 3D secure environment.
 core = 7.x
-version = 1.0
+version = 2.0
 
 configure = admin/config/paybox
